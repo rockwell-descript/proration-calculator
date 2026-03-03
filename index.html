@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Proration Calculator</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f6f8; color: #1a1a2e; min-height: 100vh; }
+
+  .container { max-width: 720px; margin: 0 auto; padding: 32px 20px; }
+
+  h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: #6b7280; font-size: 14px; margin-bottom: 28px; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; margin-bottom: 28px; border-radius: 10px; overflow: hidden; border: 1px solid #e0e0e0; }
+  .tab { flex: 1; padding: 12px 16px; text-align: center; font-size: 14px; font-weight: 600; cursor: pointer; background: #fff; border: none; color: #6b7280; transition: all 0.15s; }
+  .tab:first-child { border-right: 1px solid #e0e0e0; }
+  .tab.active { background: #1a1a2e; color: #fff; }
+  .tab:hover:not(.active) { background: #f0f0f5; }
+
+  /* Card */
+  .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 20px; }
+  .card-title { font-size: 16px; font-weight: 600; margin-bottom: 20px; padding-bottom: 12px; border-bottom: 1px solid #f0f0f0; }
+
+  /* Form */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.full-width { grid-column: 1 / -1; }
+  label { font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+  .label-hint { font-weight: 400; color: #9ca3af; }
+  input, select { padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; transition: border 0.15s; background: #fff; }
+  input:focus, select:focus { outline: none; border-color: #1a1a2e; box-shadow: 0 0 0 2px rgba(26,26,46,0.08); }
+  input[type="number"] { -moz-appearance: textfield; }
+  input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  .approx-note { font-size: 12px; color: #6b7280; margin-top: 10px; padding: 8px 12px; background: #f8f9fb; border-radius: 6px; border-left: 3px solid #d1d5db; }
+
+  /* Button */
+  .btn { display: block; width: 100%; padding: 12px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; margin-top: 8px; transition: background 0.15s; }
+  .btn:hover { background: #2d2d4e; }
+
+  /* Results */
+  .results { display: none; }
+  .results.visible { display: block; }
+  .result-row { display: flex; justify-content: space-between; align-items: baseline; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
+  .result-row:last-child { border-bottom: none; }
+  .result-label { font-size: 13px; color: #6b7280; }
+  .result-value { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .result-row.highlight { background: #f0fdf4; margin: 0 -28px; padding: 12px 28px; border-radius: 8px; border-bottom: none; }
+  .result-row.highlight .result-label { color: #166534; font-weight: 600; }
+  .result-row.highlight .result-value { color: #166534; font-size: 18px; }
+  .result-row.credit { background: #fef2f2; margin: 0 -28px; padding: 12px 28px; border-radius: 8px; border-bottom: none; }
+  .result-row.credit .result-label { color: #991b1b; font-weight: 600; }
+  .result-row.credit .result-value { color: #991b1b; font-size: 16px; }
+  .result-row.net { background: #eff6ff; margin: 0 -28px; padding: 12px 28px; border-radius: 8px; border-bottom: none; margin-top: 4px; }
+  .result-row.net .result-label { color: #1e40af; font-weight: 600; }
+  .result-row.net .result-value { color: #1e40af; font-size: 18px; }
+
+  .divider { height: 1px; background: #e5e7eb; margin: 12px 0; }
+
+  .section-label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: #9ca3af; margin: 16px 0 8px; }
+
+  /* Error */
+  .error { color: #dc2626; font-size: 13px; margin-top: 8px; display: none; }
+  .error.visible { display: block; }
+
+  /* Copy button */
+  .copy-btn { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 12px; font-weight: 500; color: #374151; cursor: pointer; margin-top: 12px; transition: all 0.15s; }
+  .copy-btn:hover { background: #e5e7eb; }
+  .copy-btn.copied { background: #d1fae5; border-color: #a7f3d0; color: #166534; }
+
+  @media (max-width: 500px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .container { padding: 20px 16px; }
+    .card { padding: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>Proration Calculator</h1>
+  <p class="subtitle">Stripe-aligned proration for mid-term expansions and plan upgrade credits</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('expansion')">Seat Expansion</button>
+    <button class="tab" onclick="switchTab('upgrade')">Plan Upgrade Credit</button>
+  </div>
+
+  <!-- EXPANSION TAB -->
+  <div id="expansion-tab">
+    <div class="card">
+      <div class="card-title">Mid-Term Seat Expansion</div>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Per-Seat Annual Rate <span class="label-hint">($)</span></label>
+          <input type="number" id="exp-rate" placeholder="e.g. 2333" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>New Seats to Add</label>
+          <input type="number" id="exp-seats" placeholder="e.g. 10" step="1" min="1">
+        </div>
+        <div class="form-group">
+          <label>Expansion Start Date</label>
+          <input type="date" id="exp-start">
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <div style="font-size:12px; color:#9ca3af; padding-top:8px;">Date the new seats become active</div>
+        </div>
+        <div class="form-group">
+          <label>Subscription Period Start</label>
+          <input type="date" id="exp-sub-start">
+        </div>
+        <div class="form-group">
+          <label>Subscription Period End</label>
+          <input type="date" id="exp-sub-end">
+        </div>
+      </div>
+
+      <div class="error" id="exp-error"></div>
+      <button class="btn" onclick="calcExpansion()">Calculate Proration</button>
+    </div>
+
+    <div class="card results" id="exp-results">
+      <div class="card-title">Expansion Summary</div>
+      <div id="exp-results-body"></div>
+      <button class="copy-btn" onclick="copyResults('expansion')">Copy to clipboard</button>
+    </div>
+  </div>
+
+  <!-- UPGRADE TAB -->
+  <div id="upgrade-tab" style="display:none;">
+    <div class="card">
+      <div class="card-title">Plan Upgrade Credit</div>
+
+      <p class="section-label">Current Plan (Consumer Annual)</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Per-Seat Annual Rate <span class="label-hint">($)</span></label>
+          <input type="number" id="upg-old-rate" placeholder="e.g. 144" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Number of Seats</label>
+          <input type="number" id="upg-old-seats" placeholder="e.g. 5" step="1" min="1">
+        </div>
+        <div class="form-group">
+          <label>Subscription Period Start</label>
+          <input type="date" id="upg-sub-start">
+        </div>
+        <div class="form-group">
+          <label>Subscription Period End</label>
+          <input type="date" id="upg-sub-end">
+        </div>
+      </div>
+
+      <p class="section-label" style="margin-top:24px;">New Plan (Enterprise)</p>
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Per-Seat Annual Rate <span class="label-hint">($)</span></label>
+          <input type="number" id="upg-new-rate" placeholder="e.g. 300" step="0.01" min="0">
+        </div>
+        <div class="form-group">
+          <label>Number of Seats</label>
+          <input type="number" id="upg-new-seats" placeholder="e.g. 10" step="1" min="1">
+        </div>
+        <div class="form-group">
+          <label>Upgrade Effective Date</label>
+          <input type="date" id="upg-start">
+        </div>
+        <div class="form-group">
+          <label>&nbsp;</label>
+          <div style="font-size:12px; color:#9ca3af; padding-top:8px;">Date the enterprise plan starts</div>
+        </div>
+      </div>
+
+      <div class="error" id="upg-error"></div>
+      <button class="btn" onclick="calcUpgrade()">Calculate Credit & Net Due</button>
+    </div>
+
+    <div class="card results" id="upg-results">
+      <div class="card-title">Upgrade Summary</div>
+      <div id="upg-results-body"></div>
+      <button class="copy-btn" onclick="copyResults('upgrade')">Copy to clipboard</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', (tab === 'expansion' && i === 0) || (tab === 'upgrade' && i === 1));
+  });
+  document.getElementById('expansion-tab').style.display = tab === 'expansion' ? 'block' : 'none';
+  document.getElementById('upgrade-tab').style.display = tab === 'upgrade' ? 'block' : 'none';
+}
+
+function daysBetween(d1, d2) {
+  return Math.round((d2.getTime() - d1.getTime()) / 86400000);
+}
+
+function prorate(periodStart, periodEnd, changeDate) {
+  const totalDays = daysBetween(periodStart, periodEnd);
+  const calendarRemaining = daysBetween(changeDate, periodEnd);
+  // Subtract 0.5 day to approximate Stripe's seconds-based proration
+  // (Stripe counts from processing timestamp, typically mid-day)
+  const remainingDays = calendarRemaining - 0.5;
+  const usedDays = totalDays - remainingDays;
+  return {
+    totalDays,
+    remainingDays,
+    calendarRemaining,
+    usedDays,
+    factor: remainingDays / totalDays,
+    usedFactor: usedDays / totalDays
+  };
+}
+
+function roundUp(n) {
+  return Math.ceil(n);
+}
+
+function fmt(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function fmtDays(n) {
+  return n + ' days';
+}
+
+function fmtWhole(n) {
+  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+function pct(n) {
+  return (n * 100).toFixed(4) + '%';
+}
+
+function showError(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.classList.add('visible');
+}
+
+function clearError(id) {
+  const el = document.getElementById(id);
+  el.textContent = '';
+  el.classList.remove('visible');
+}
+
+function calcExpansion() {
+  clearError('exp-error');
+
+  const rate = parseFloat(document.getElementById('exp-rate').value);
+  const seats = parseInt(document.getElementById('exp-seats').value);
+  const expStart = document.getElementById('exp-start').value;
+  const subStart = document.getElementById('exp-sub-start').value;
+  const subEnd = document.getElementById('exp-sub-end').value;
+
+  if (!rate || !seats || !expStart || !subStart || !subEnd) {
+    showError('exp-error', 'Please fill in all fields.');
+    return;
+  }
+
+  const dExpStart = new Date(expStart + 'T00:00:00');
+  const dSubStart = new Date(subStart + 'T00:00:00');
+  const dSubEnd = new Date(subEnd + 'T00:00:00');
+
+  if (dExpStart < dSubStart || dExpStart >= dSubEnd) {
+    showError('exp-error', 'Expansion start must fall within the subscription term.');
+    return;
+  }
+  if (dSubEnd <= dSubStart) {
+    showError('exp-error', 'Subscription end must be after start.');
+    return;
+  }
+
+  const p = prorate(dSubStart, dSubEnd, dExpStart);
+  const annualizedAmount = rate * seats;
+  const exactProrated = rate * p.factor * seats;
+  const proratedAmount = roundUp(exactProrated);
+
+  const resultsEl = document.getElementById('exp-results');
+  resultsEl.classList.add('visible');
+  document.getElementById('exp-results-body').innerHTML = `
+    <div class="result-row"><span class="result-label">Per-seat annual rate</span><span class="result-value">${fmt(rate)}</span></div>
+    <div class="result-row"><span class="result-label">New seats</span><span class="result-value">${seats}</span></div>
+    <div class="result-row"><span class="result-label">Total annualized amount</span><span class="result-value">${fmt(annualizedAmount)}</span></div>
+    <div class="divider"></div>
+    <div class="result-row"><span class="result-label">Billing period</span><span class="result-value">${fmtDays(p.totalDays)}</span></div>
+    <div class="result-row"><span class="result-label">Remaining from expansion</span><span class="result-value">${fmtDays(p.calendarRemaining)}</span></div>
+    <div class="result-row"><span class="result-label">Proration factor</span><span class="result-value">${pct(p.factor)}</span></div>
+    <div class="divider"></div>
+    <div class="result-row highlight"><span class="result-label">Prorated Amount Due</span><span class="result-value">${fmtWhole(proratedAmount)}</span></div>
+    <div class="approx-note">Estimate rounded up to the nearest dollar. Actual Stripe amount may differ by up to $1.</div>
+  `;
+
+  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function calcUpgrade() {
+  clearError('upg-error');
+
+  const oldRate = parseFloat(document.getElementById('upg-old-rate').value);
+  const oldSeats = parseInt(document.getElementById('upg-old-seats').value);
+  const subStart = document.getElementById('upg-sub-start').value;
+  const subEnd = document.getElementById('upg-sub-end').value;
+  const newRate = parseFloat(document.getElementById('upg-new-rate').value);
+  const newSeats = parseInt(document.getElementById('upg-new-seats').value);
+  const upgStart = document.getElementById('upg-start').value;
+
+  if (!oldRate || !oldSeats || !subStart || !subEnd || !newRate || !newSeats || !upgStart) {
+    showError('upg-error', 'Please fill in all fields.');
+    return;
+  }
+
+  const dSubStart = new Date(subStart + 'T00:00:00');
+  const dSubEnd = new Date(subEnd + 'T00:00:00');
+  const dUpgStart = new Date(upgStart + 'T00:00:00');
+
+  if (dUpgStart < dSubStart || dUpgStart >= dSubEnd) {
+    showError('upg-error', 'Upgrade date must fall within the subscription term.');
+    return;
+  }
+  if (dSubEnd <= dSubStart) {
+    showError('upg-error', 'Subscription end must be after start.');
+    return;
+  }
+
+  const p = prorate(dSubStart, dSubEnd, dUpgStart);
+
+  // Old plan credit
+  const oldAnnual = oldRate * oldSeats;
+  const oldUsedAmount = Math.round(oldRate * p.usedFactor * oldSeats * 100) / 100;
+  const exactCredit = oldRate * p.factor * oldSeats;
+  const oldCreditAmount = roundUp(exactCredit);
+
+  // New plan prorated
+  const newAnnual = newRate * newSeats;
+  const exactNewProrated = newRate * p.factor * newSeats;
+  const newProratedAmount = roundUp(exactNewProrated);
+
+  // Net
+  const netDue = newProratedAmount - oldCreditAmount;
+
+  const resultsEl = document.getElementById('upg-results');
+  resultsEl.classList.add('visible');
+  document.getElementById('upg-results-body').innerHTML = `
+    <p class="section-label">Current Plan (Consumer Annual)</p>
+    <div class="result-row"><span class="result-label">Annual amount (${oldSeats} seats × ${fmt(oldRate)})</span><span class="result-value">${fmt(oldAnnual)}</span></div>
+    <div class="result-row"><span class="result-label">Used: ${fmtDays(Math.ceil(p.usedDays))} of ${fmtDays(p.totalDays)}</span><span class="result-value">${fmt(oldUsedAmount)}</span></div>
+    <div class="result-row credit"><span class="result-label">Credit for unused portion (${fmtDays(p.calendarRemaining)})</span><span class="result-value">-${fmtWhole(oldCreditAmount)}</span></div>
+
+    <p class="section-label" style="margin-top:20px;">New Plan (Enterprise)</p>
+    <div class="result-row"><span class="result-label">Annualized amount (${newSeats} seats × ${fmt(newRate)})</span><span class="result-value">${fmt(newAnnual)}</span></div>
+    <div class="result-row"><span class="result-label">Prorated for remaining term (${fmtDays(p.calendarRemaining)})</span><span class="result-value">${fmtWhole(newProratedAmount)}</span></div>
+
+    <div class="divider" style="margin-top:8px;"></div>
+    <div class="result-row"><span class="result-label">Proration factor</span><span class="result-value">${pct(p.factor)}</span></div>
+    <div class="result-row credit" style="margin-top:4px;"><span class="result-label">Credit applied from old plan</span><span class="result-value">-${fmtWhole(oldCreditAmount)}</span></div>
+    <div class="result-row net"><span class="result-label">Net Amount Due</span><span class="result-value">${fmtWhole(netDue)}</span></div>
+    ${netDue < 0 ? '<div style="font-size:12px; color:#6b7280; margin-top:8px; padding:0 28px;">Negative amount = credit remaining after upgrade. Consider refunding or applying to future invoices.</div>' : ''}
+    <div class="approx-note">Estimate rounded up to the nearest dollar. Actual Stripe amount may differ by up to $1.</div>
+  `;
+
+  resultsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function copyResults(type) {
+  const body = document.getElementById(type === 'expansion' ? 'exp-results-body' : 'upg-results-body');
+  const rows = body.querySelectorAll('.result-row');
+  let text = type === 'expansion' ? 'SEAT EXPANSION PRORATION\n' : 'PLAN UPGRADE CREDIT\n';
+  text += '─'.repeat(40) + '\n';
+
+  rows.forEach(row => {
+    const label = row.querySelector('.result-label')?.textContent || '';
+    const value = row.querySelector('.result-value')?.textContent || '';
+    if (row.classList.contains('highlight') || row.classList.contains('net')) {
+      text += '\n' + label.replace(/Estimate|Exact/g, '').trim() + ': ' + value + '\n';
+    } else {
+      text += label + ': ' + value + '\n';
+    }
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = body.parentElement.querySelector('.copy-btn');
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy to clipboard'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+
+// Set default dates for convenience
+const today = new Date();
+const todayStr = today.toISOString().split('T')[0];
+document.getElementById('exp-start').value = todayStr;
+document.getElementById('upg-start').value = todayStr;
+</script>
+
+</body>
+</html>
